@@ -18,18 +18,32 @@ def is_valid_prop(fmla):
     stack = []
     i = 0
     while i < len(fmla):
+        # print(stack)
         if fmla[i] == CLOSING_BRACKET:
             binary_connective_seen = False
+            comma_seen = False
             while len(stack) > 0 and stack[-1] != OPENING_BRACKET:
                 if stack[-1] in BINARY_CONNECTIVES:
                     binary_connective_seen = True
+                if stack[-1] == COMMA:
+                    comma_seen = True
                 stack.pop()
-            if len(stack) == 0 or not binary_connective_seen:
-                return False 
+            if len(stack) == 0:
+                return False
+            if comma_seen is False and binary_connective_seen is False:
+                return False
             stack.pop()
+            if comma_seen:
+                if len(stack) == 0 or stack[-1] not in PREDICATES:
+                    return False
+                else:
+                    stack.pop()
             stack.append("@")
-        elif fmla[i] in [NOT, COMMA, EXIST, FOR_ALL, PREDICATES]:
+        elif fmla[i] in [NOT]:
             i += 1
+            continue
+        elif fmla[i] in [EXIST, FOR_ALL]:
+            i += 2
             continue
         else:
             if i < len(fmla) and fmla[i:i + 2] in BINARY_CONNECTIVES:
@@ -38,14 +52,15 @@ def is_valid_prop(fmla):
             else:
                 stack.append(fmla[i])
         i += 1
-    # print(stack)
     return len(stack) == 1
 
 def is_valid_fol(fmla):
     return False
 
 def propositional(fmla):
-    #assume fmla is valid for now
+    for i in range(len(fmla)):
+        if  fmla[i] in VARIABLES or fmla[i] in PREDICATES or fmla[i] in [FOR_ALL, EXIST]:
+            return 0
     if not is_valid_prop(fmla):
         return 0
     if len(fmla) == 1 and fmla[0] in PROPOSITIONS:
@@ -56,14 +71,17 @@ def propositional(fmla):
 
 def first_order(fmla):
     #assume fmla is valid for now
+    for i in range(len(fmla)):
+        if fmla[i] in PROPOSITIONS:
+            return 0
     if not is_valid_prop(fmla):
-        return False
+        return 0
     if fmla[0] == NOT:
         return 2
     elif fmla[0] == EXIST:
-        return 3
-    elif fmla[0] == FOR_ALL:
         return 4
+    elif fmla[0] == FOR_ALL:
+        return 3
     for i in range(0, len(fmla) - 1):
         if fmla[i:i + 2] in BINARY_CONNECTIVES:
             return 5
@@ -99,11 +117,11 @@ def lhs(fmla):
 def con(fmla):
     stack = []
     for i in range(1, len(fmla) - 1):
-        if len(stack) == 0 and fmla[i:i + 2] in ["/\\", "\/", "=>"]:
+        if len(stack) == 0 and fmla[i:i + 2] in BINARY_CONNECTIVES:
             return fmla[i:i+2]
-        elif fmla[i] == '(':
-            stack.append('(')
-        elif fmla[i] == ')':
+        elif fmla[i] == OPENING_BRACKET:
+            stack.append(OPENING_BRACKET)
+        elif fmla[i] == CLOSING_BRACKET:
             stack.pop()
     return None 
 
