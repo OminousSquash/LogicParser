@@ -15,6 +15,10 @@ EXIST = "E"
 FOR_ALL = "A"
 BASE_PROPOSITIONS = ["p", "q", "r", "s", NOT + "p", NOT + "q", NOT + "r", NOT + "s"]
 
+NON_SATISFIABLE = 0
+SATISFIABLE = 1
+EXCEEDS_CONSTANTS = 2
+
 def is_valid_prop(fmla):
     stack = []
     i = 0
@@ -139,74 +143,94 @@ def rhs(fmla):
 
     return result
 
-def recursive(queue, result, seen):
-    while len(queue) > 0:
-        formula = queue.pop(0)
-        if formula in BASE_PROPOSITIONS:
-            seen.append(formula)
-        elif formula[0] == NOT:
-            if formula[1] == NOT:
-                queue.append(formula[2:])
-            else:
-                connective = con(formula[1:])
-                left_formula = lhs(formula[1:])
-                right_formula = rhs(formula[1:])
-                if connective == OR:
-                    connective = AND
-                elif connective == OR:
-                    connective = AND
-                else:
-                    connective = AND
-                    right_formula = NOT + right_formula
-                queue.append(OPENING_BRACKET + left_formula + connective + right_formula + CLOSING_BRACKET)
-        else:
-            connective = con(formula)
-            left_formula = lhs(formula)
-            right_formula = rhs(formula)
-            if connective == AND:
-                queue.append(left_formula)
-                queue.append(right_formula)
-
-            elif connective == OR:
-                copy_queue = queue[:]
-                copy_queue.append(left_formula)
-                copy_seen = seen[:]
-                recursive(copy_queue, result, copy_seen)
-                copy_queue = queue[:]
-                copy_queue.append(right_formula)
-                copy_seen = seen[:]
-                recursive(copy_queue, result, copy_seen)
-            else:
-                left_formula = NOT + left_formula
-                connective = OR
-                queue.append(OPENING_BRACKET + left_formula + connective + right_formula + CLOSING_BRACKET)
-    if len(seen) > 0:
-        result.append(seen)
-    return result
 
 # You may choose to represent a theory as a set or a list
 def theory(fmla):#initialise a theory with a single formula in it
-    queue = [fmla]
-    result = recursive(queue, [], [])
+    result = {fmla}
+    return result
+
+def is_contradictory(theory):
+    for formula in theory:
+        if formula in BASE_PROPOSITIONS and ((formula[0] == NOT and formula[1] in theory) or (NOT + formula[0] in theory)):
+            return True
+    return False
+
+def is_fully_expanded(theory):
+    for formula in theory:
+        if formula not in BASE_PROPOSITIONS:
+            return False
+    return True
+
+def get_first_non_literal(theory):
+    #theory is a set of formulas
+    for formula in theory:
+        if formula not in BASE_PROPOSITIONS:
+            return formula
+    return None
+
+def deep_copy(theory):
+    result = set()
+    for formula in theory:
+        result.add(formula)
     return result
 
 #check for satisfiability
 def sat(tableau): #output 0 if not satisfiable, output 1 if satisfiable, output 2 if number of constants exceeds MAX_CONSTANTS
-    paths = tableau[0]
-    print(paths) 
-    # [[p, ~p], [q, p], [q, ~q]]
-    for b in paths:
-        satisfiable = True
-        if len(b) >= MAX_CONSTANTS:
-            return 2
-        s = set(b)
-        for prop in s:
-            if prop[0] == NOT and prop[1] in s or NOT + prop[0] in s:
-                satisfiable = False
-                break
-        if satisfiable:
-            return 1
-    return 0
+    queue = tableau
+    while len(queue) > 0:
+        theory = queue.pop(0)
+        if is_fully_expanded(theory) and not is_contradictory(theory):
+            return SATISFIABLE
+        else:
+            non_literal = get_first_non_literal(theory)
+            theory.remove(non_literal)
+            left = lhs(non_literal)
+            connective = con(non_literal)
+            right = rhs(non_literal)
+            if non_literal[0] == NOT:
+                if non_literal[1] == NOT:
+                    theory.add(non_literal[2:])
+                elif connective == AND:
+                    connective = OR
+                    left = NOT + left
+                    right = NOT + right
+                    theory.add(OPENING_BRACKET + left + connective + right + CLOSING_BRACKET)
+                    queue.append(theory)
+                elif connective == OR:
+                    connective = AND
+                    left = NOT + left
+                    right = NOT + right
+                    theory.add(OPENING_BRACKET + left + connective + right + CLOSING_BRACKET)
+                    queue.append(theory)
+                elif connective == IMPLIES:
+                    right = NOT + right
+                    connective = AND
+                    theory.add(OPENING_BRACKET + left + connective + right + CLOSING_BRACKET)
+                    queue.append(theory)
+            else:
+                if connective == AND:
+                    theory_copy = deep_copy(theory)
+                    theory_copy.add(left)
+                    theory_copy.add(right)
+                    if not is_contradictory(theory_copy) and theory_copy not in queue:
+                        queue.append(theory_copy)
+                elif connective == OR:
+                    theory_copy_branch_one = deep_copy(theory)
+                    theory_copy_branch_two = deep_copy(theory)
+                    theory_copy_branch_one.add(left)
+                    theory_copy_branch_two.add(right)
+                    if theory_copy_branch_one not in queue and not is_contradictory(theory_copy_branch_one):
+                        queue.append(theory_copy_branch_one)
+                    if theory_copy_branch_two not in queue and not is_contradictory(theory_copy_branch_two):
+                        queue.append(theory_copy_branch_two)
+                elif connective == IMPLIES:
+                    connective = OR
+                    left = NOT + left
+                    theory.add(OPENING_BRACKET + left + connective + right + CLOSING_BRACKET)
+                    queue.append(theory)
+
+    return NON_SATISFIABLE
+
 #------------------------------------------------------------------------------------------------------------------------------:
 #                   DO NOT MODIFY THE CODE BELOW. MODIFICATION OF THE CODE BELOW WILL RESULT IN A MARK OF 0!                   :
 #------------------------------------------------------------------------------------------------------------------------------:
