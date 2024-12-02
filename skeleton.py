@@ -1,3 +1,4 @@
+from tensorflow.python.ops.gen_dataset_ops import flat_map_dataset
 
 MAX_CONSTANTS = 10
 BINARY_CONNECTIVES = ["=>", "/\\", "\\/"]
@@ -14,10 +15,19 @@ IMPLIES = "=>"
 EXIST = "E"
 FOR_ALL = "A"
 BASE_PROPOSITIONS = ["p", "q", "r", "s", NOT + "p", NOT + "q", NOT + "r", NOT + "s"]
-
+CONSTANTS = [chr(i) for i in range(97, 97 + 10)]
+BASE_ATOMS = [f"{p}({q},{r})" for p in PREDICATES for q in CONSTANTS for r in CONSTANTS]
+BASE_ATOMS.extend([NOT + s for s in BASE_ATOMS])
 NON_SATISFIABLE = 0
 SATISFIABLE = 1
 EXCEEDS_CONSTANTS = 2
+USED = []
+
+#cases
+ALPHA = 1
+BETA = 2
+DELTA = 3
+GAMMA = 4
 
 def is_valid_prop(fmla):
     stack = []
@@ -143,7 +153,6 @@ def rhs(fmla):
 
     return result
 
-
 # You may choose to represent a theory as a set or a list
 def theory(fmla):#initialise a theory with a single formula in it
     result = {fmla}
@@ -151,20 +160,20 @@ def theory(fmla):#initialise a theory with a single formula in it
 
 def is_contradictory(theory):
     for formula in theory:
-        if formula in BASE_PROPOSITIONS and ((formula[0] == NOT and formula[1] in theory) or (NOT + formula[0] in theory)):
+        if formula[0] == NOT and formula[1:] in theory:
             return True
     return False
 
 def is_fully_expanded(theory):
     for formula in theory:
-        if formula not in BASE_PROPOSITIONS:
+        if formula not in BASE_PROPOSITIONS + BASE_ATOMS:
             return False
     return True
 
 def get_first_non_literal(theory):
     #theory is a set of formulas
     for formula in theory:
-        if formula not in BASE_PROPOSITIONS:
+        if formula not in BASE_PROPOSITIONS and formula not in BASE_ATOMS:
             return formula
     return None
 
@@ -174,8 +183,30 @@ def deep_copy(theory):
         result.add(formula)
     return result
 
+def determine_case(fmla, connective):
+    if fmla[0] == NOT:
+        if fmla[1] == EXIST:
+            return GAMMA
+        elif fmla[1] == FOR_ALL:
+            return DELTA
+        elif fmla[1] == NOT:
+            return ALPHA
+        elif connective in [OR, IMPLIES]:
+            return ALPHA
+        elif connective == AND:
+            return BETA
+    if fmla[0] == EXIST:
+        return DELTA
+    elif fmla[0] == FOR_ALL:
+        return GAMMA
+    elif connective == AND:
+        return ALPHA
+    elif connective == OR:
+        return BETA
+
 #check for satisfiability
 def sat(tableau): #output 0 if not satisfiable, output 1 if satisfiable, output 2 if number of constants exceeds MAX_CONSTANTS
+    global USED
     queue = tableau
     while len(queue) > 0:
         theory = queue.pop(0)
@@ -187,6 +218,7 @@ def sat(tableau): #output 0 if not satisfiable, output 1 if satisfiable, output 
             left = lhs(non_literal)
             connective = con(non_literal)
             right = rhs(non_literal)
+            fmla_type = determine_case(non_literal, connective)
 
             if non_literal[0] == NOT:
                 if non_literal[1] == NOT:
@@ -230,6 +262,7 @@ def sat(tableau): #output 0 if not satisfiable, output 1 if satisfiable, output 
                     left = NOT + left
                     theory.add(OPENING_BRACKET + left + connective + right + CLOSING_BRACKET)
                     queue.append(theory)
+
 
     return NON_SATISFIABLE
 
