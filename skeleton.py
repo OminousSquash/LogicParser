@@ -1,6 +1,6 @@
 
 MAX_CONSTANTS = 10
-BINARY_CONNECTIVES = ["=>", "/\\", "\/"]
+BINARY_CONNECTIVES = ["=>", "/\\", "\\/"]
 PROPOSITIONS = ["p", "q", "r", "s"]
 PREDICATES = ["P", "Q", "R", "S"]
 VARIABLES = ["w", "x", "y", "z"]
@@ -9,7 +9,7 @@ CLOSING_BRACKET = ")"
 COMMA = ","
 NOT = "~"
 AND = "/\\"
-OR = "\/"
+OR = "\\/"
 IMPLIES = "=>"
 EXIST = "E"
 FOR_ALL = "A"
@@ -187,9 +187,11 @@ def sat(tableau): #output 0 if not satisfiable, output 1 if satisfiable, output 
             left = lhs(non_literal)
             connective = con(non_literal)
             right = rhs(non_literal)
+
             if non_literal[0] == NOT:
                 if non_literal[1] == NOT:
                     theory.add(non_literal[2:])
+                    queue.append(theory)
                 elif connective == AND:
                     connective = OR
                     left = NOT + left
